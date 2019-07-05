@@ -11,6 +11,8 @@ setup(name='ubuntu-scripts',
       license='gpl-3.0+',
       scripts=['make-sru-tasks'],
       install_requires=[
+          'keyring',
+          'keyrings.alt',
           'launchpadlib',
           'lazr.restfulclient'
       ],
