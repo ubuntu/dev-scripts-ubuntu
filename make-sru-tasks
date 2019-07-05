@@ -115,6 +115,7 @@ def main():
                         dest='releases',
                         metavar='RELEASE',
                         action='append',
+                        required=True,
                         choices=UbuntuDistroInfo().supported(),
                         help='Create bug tasks for RELEASE')
     parser.add_argument('--dry-run', '--no-act', '-n',
