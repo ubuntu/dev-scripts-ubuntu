@@ -1,0 +1,173 @@
+#!/usr/bin/python3
+# vim:fenc=utf-8:et:sw=4:ts=4
+
+# Copyright 2019 Canonical Ltd.
+# Author: Iain Lane <laney@ubuntu.com>
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Take a Launchpad bug, and make tasks for the given stable releases, so that
+# it can be SRUed.
+
+import argparse
+import lazr
+import logging
+import sys
+from launchpadlib.launchpad import Launchpad
+from distro_info import UbuntuDistroInfo
+
+
+STATUS_CHOICES = {
+    'INPROGRESS': 'In Progress',
+    'FIXCOMMITTED': 'Fix Committed',
+    'FIXRELEASED': 'Fix Released'
+}
+
+
+log = logging.getLogger('make-sru-tasks')
+
+
+def make_tasks(lp, bug, releases, assignee, dev_release_status, stable_release_status, dry_run):
+    log.debug('Loading bug {}'.format(bug))
+
+    lp_bug = lp.bugs[bug]
+
+    for task in lp_bug.bug_tasks:
+        log.debug('Considering bug task for package: %s', task.target.name)
+        try:
+            task.target.distroseries  # nominated, these are ignored
+            pass
+        except AttributeError:
+            # teehee, most of the work for this script happens inside an except clause
+
+            # update dev release status
+            if dev_release_status and task.status != STATUS_CHOICES[dev_release_status]:
+                log.info('%sSetting %s task on %d to %s',
+                         '[dry run] ' if dry_run else '',
+                         task.target.name,
+                         bug,
+                         STATUS_CHOICES[dev_release_status])
+                if not dry_run:
+                    task.status = STATUS_CHOICES[dev_release_status]
+                    task.lp_save()
+
+            # make a new task
+            for release in releases:
+                distro_series = lp.distributions['ubuntu'].getSeries(name_or_version=release)
+                source_package = distro_series.getSourcePackage(name=task.target.name)
+                log.info('%sCreating task for %s/%s on bug %d with assignee %s, status %s and importance %s',
+                         '[dry run] ' if dry_run else '',
+                         task.target.name,
+                         release,
+                         bug,
+                         assignee.name,
+                         STATUS_CHOICES[stable_release_status],
+                         task.importance)
+                if not dry_run:
+                    try:
+                        new_task = lp_bug.addTask(target=source_package)
+                        new_task.assignee = assignee
+                        new_task.status = STATUS_CHOICES[stable_release_status]
+                        new_task.importance = task.importance
+                        new_task.lp_save()
+                    except lazr.restfulclient.errors.BadRequest as e:
+                        if e.response.status == 400:
+                            log.info("Can't create task: already exists?")
+                            continue
+                        raise e
+
+    if not dry_run:
+        lp_bug.lp_save()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Make SRU bug tasks')
+    parser.add_argument('--dev-release-status', '-d',
+                        choices=STATUS_CHOICES.keys(),
+                        help='Status to set the development release (default) tasks to (left unchanged if not '
+                             'specified)',
+                        dest='dev_release_status')
+    parser.add_argument('--stable-release-status', '-s',
+                        choices=STATUS_CHOICES.keys(),
+                        default='INPROGRESS',
+                        help='Status to set the new stable release tasks to (default: In Progress)',
+                        dest='stable_release_status')
+    parser.add_argument('--assign', '-a',
+                        type=str,
+                        help='Launchpad user to assign newly created bug tasks '
+                             'to (default: logged-in user)')
+    parser.add_argument('--release', '-r',
+                        dest='releases',
+                        metavar='RELEASE',
+                        action='append',
+                        choices=UbuntuDistroInfo().supported(),
+                        help='Create bug tasks for RELEASE')
+    parser.add_argument('--dry-run', '--no-act', '-n',
+                        action='store_true',
+                        help='Print what would be done, but don\'t do it')
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help='Print debugging output')
+    parser.add_argument('bugs',
+                        type=int,
+                        nargs='+',
+                        help='Bugs to create tasks for')
+
+    args = parser.parse_args()
+
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(levelname)s: %(message)s')
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+
+    if args.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.WARNING)
+
+    lp = Launchpad.login_with('make-sru-tasks', 'production', 'devel')
+
+    if not args.assign:
+        args.assign = lp.me
+    else:
+        try:
+            args.assign = lp.people[args.assign]
+        except KeyError:
+            log.error('{} is not a valid Launchpad user'.format(args.assign))
+            return 1
+
+    for bug in args.bugs:
+        try:
+            make_tasks(lp,
+                       bug,
+                       args.releases,
+                       args.assign,
+                       args.dev_release_status,
+                       args.stable_release_status,
+                       args.dry_run)
+        except (KeyError, ValueError) as e:
+            try:
+                log.error("Couldn't make task for bug {}: {}".format(bug, e.message))
+            except AttributeError:
+                log.error("Couldn't make task for bug {}: bug not found or private".format(bug))
+            return 1
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
