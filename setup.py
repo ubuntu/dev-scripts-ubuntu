@@ -2,10 +2,10 @@
 
 from setuptools import setup
 
-setup(name='ubuntu-scripts',
+setup(name='dev-scripts-ubuntu',
       version='0.1',
       description='A collection of useful scripts for Ubuntu developers',
-      url='https://github.com/ubuntu/ubuntu-scripts',
+      url='https://github.com/ubuntu/dev-scripts-ubuntu',
       author='Iain Lane',
       author_email='iain.lane@canonical.com',
       license='gpl-3.0+',

@@ -1,17 +1,17 @@
-name: ubuntu-scripts
+name: dev-scripts-ubuntu
 version: git
 summary: Ubuntu Development Scripts
 description: |
-    Ubuntu Scripts is a collection of scripts to make the lives of Ubuntu
-    developers easier. It is similar to the `ubuntu-dev-tools` project, but
-    more liberal in what it will accept.
+    This is a collection of scripts to make the lives of Ubuntu developers
+    easier. It is similar to the `ubuntu-dev-tools` project, but more suitable
+    for 'throwing' scripts in.
 base: core18
 
 grade: devel
 confinement: strict
 
 parts:
-    ubuntu-scripts:
+    dev-scripts-ubuntu:
         plugin: python
         python-version: python3
         source: .

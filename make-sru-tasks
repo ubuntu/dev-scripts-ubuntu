@@ -141,7 +141,7 @@ def main():
     else:
         log.setLevel(logging.WARNING)
 
-    cachedir = os.path.join(os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache')), 'ubuntu-scripts')
+    cachedir = os.path.join(os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache')), 'dev-scripts-ubuntu')
     lp = Launchpad.login_with('make-sru-tasks', 'production', cachedir, version='devel')
 
     if not args.assign:
