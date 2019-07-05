@@ -26,6 +26,7 @@
 import argparse
 import lazr
 import logging
+import os
 import sys
 from launchpadlib.launchpad import Launchpad
 from distro_info import UbuntuDistroInfo
@@ -139,7 +140,8 @@ def main():
     else:
         log.setLevel(logging.WARNING)
 
-    lp = Launchpad.login_with('make-sru-tasks', 'production', 'devel')
+    cachedir = os.path.join(os.environ.get('XDG_CACHE_HOME', os.path.expanduser('~/.cache')), 'ubuntu-scripts')
+    lp = Launchpad.login_with('make-sru-tasks', 'production', cachedir, version='devel')
 
     if not args.assign:
         args.assign = lp.me
