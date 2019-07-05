@@ -16,7 +16,8 @@ parts:
         python-version: python3
         source: .
         build-packages:
-            - libssl-dev # needed to build cryptography
+            - libffi-dev
+            - libssl-dev # both needed to build cryptography
         stage-packages:
             - python3-distro-info # get this from the distro, it's more up to date
 
